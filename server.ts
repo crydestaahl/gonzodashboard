@@ -17,6 +17,7 @@ const FileStore = FileStoreFactory(session);
 
 const app = express();
 const PORT = 3000;
+const isProduction = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1);
 
@@ -30,8 +31,8 @@ app.use(
     proxy: true,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000,
-      secure: true,
-      sameSite: "none",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       httpOnly: true,
     },
   })
@@ -46,7 +47,11 @@ app.use((req: any, res, next) => {
 
 const getRedirectUri = (req: any) => {
   if (process.env.APP_URL) return `${process.env.APP_URL}/auth/callback`;
-  const protocol = req.headers["x-forwarded-proto"] || "https";
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const protocol =
+    typeof forwardedProto === "string" && forwardedProto.length > 0
+      ? forwardedProto.split(",")[0].trim()
+      : req.protocol;
   const host = req.headers["host"];
   return `${protocol}://${host}/auth/callback`;
 };
@@ -155,7 +160,11 @@ app.get("/auth/callback", async (req: any, res) => {
     });
   } catch (error) {
     console.error("Error exchanging code for tokens:", error);
-    res.status(500).send("Authentication failed");
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown token exchange error";
+    res.status(500).send(
+      isProduction ? "Authentication failed" : `Authentication failed: ${errorMessage}`
+    );
   }
 });
 
@@ -333,7 +342,7 @@ app.get("/api/weather", async (req, res) => {
 });
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
