@@ -1,0 +1,7 @@
+{
+  "name": "Personal Productivity Dashboard",
+  "description": "A modern dashboard integrating Gmail, Google Calendar, and Weather with smart email activity insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
